@@ -3,12 +3,15 @@
 Personal food and macro tracker. Mobile-first PWA, data synced through Supabase (free tier), static frontend.
 
 ## Features (v1)
-- Log food per Breakfast / Lunch / Dinner / Snacks with kcal, protein, carbs, fat.
-- Daily total, calories remaining vs. target, and optional protein/carb/fat targets with amounts left.
-- **Foods**: saved presets. Tap once in the add sheet to log one serving; ✎ adjusts values or servings first.
-- **Meals**: saved groups of items. Tap once to log the whole meal; each item becomes its own editable entry. In the Library you can swap any item (⇄) for another saved food and the totals update.
-- "Save as meal" from any logged section, "Copy yesterday" for empty sections.
-- Email/password login; row-level security means only your account can read or change your data.
+- Log what you eat in Breakfast / Lunch / Dinner / Snacks, with kcal, protein, carbs and fat.
+- Daily total, calories left against your target, and optional protein/carb/fat targets.
+- **Foods**: kcal and macros per 100 g (Greek yoghurt, berries, Shreddies...).
+- **Recipes**: a list of foods with grams (e.g. your usual breakfast). One tap logs the whole recipe. Tap ✎ to change grams first. In the Library you can swap a food (⇄) and the grams stay.
+- Log one food: tap it, type grams, add.
+- **Quick entry**: type name and numbers directly, nothing is saved (good for restaurants).
+- Logged entries keep their own numbers, so editing a food later does not change past days.
+- "Save as recipe" from a logged section. "Copy yesterday" for empty sections.
+- Email/password login; only your account can read or change your data.
 
 ## Setup
 1. Create a free project at <https://supabase.com>.

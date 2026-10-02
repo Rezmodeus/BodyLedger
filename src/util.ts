@@ -1,4 +1,4 @@
-import type { Item, Macros } from './types';
+import type { Food, Item, Macros, Recipe } from './types';
 
 export const ZERO: Macros = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
 
@@ -14,27 +14,33 @@ export function sum(items: Macros[]): Macros {
   );
 }
 
-export function scale<T extends Macros>(item: T, n: number): T {
-  return {
-    ...item,
-    kcal: round(item.kcal * n),
-    protein: round(item.protein * n),
-    carbs: round(item.carbs * n),
-    fat: round(item.fat * n),
-  };
-}
-
 export const round = (n: number) => Math.round(n * 10) / 10;
 export const fmt = (n: number) => String(Math.round(n));
 
-export const toItem = (i: Item): Item => ({
-  name: i.name,
-  serving: i.serving,
-  kcal: i.kcal,
-  protein: i.protein,
-  carbs: i.carbs,
-  fat: i.fat,
-});
+export function foodItem(f: Food, grams: number): Item {
+  const k = grams / 100;
+  return {
+    name: f.name,
+    grams,
+    food_id: f.id,
+    kcal: round(f.kcal * k),
+    protein: round(f.protein * k),
+    carbs: round(f.carbs * k),
+    fat: round(f.fat * k),
+  };
+}
+
+export function recipeItems(r: Recipe, foods: Food[]): Item[] {
+  return r.items.flatMap((i) => {
+    const f = foods.find((x) => x.id === i.food_id);
+    return f ? [foodItem(f, i.grams)] : [];
+  });
+}
+
+export const num = (s: string) => {
+  const n = parseFloat(s.replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+};
 
 export function todayStr(): string {
   return dateStr(new Date());

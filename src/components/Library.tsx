@@ -1,25 +1,25 @@
 import { useState } from 'react';
 import type { useLibrary } from '../db';
-import type { Food, Item, MealType, SavedMeal } from '../types';
+import type { Food, MealType, Recipe } from '../types';
 import { MEAL_TYPES } from '../types';
-import { fmt, sum, toItem } from '../util';
-import { ItemForm } from './ItemForm';
+import { fmt, foodItem, num, sum } from '../util';
+import { FoodForm } from './FoodForm';
+import { FoodPicker } from './FoodPicker';
 import { Sheet } from './Sheet';
 
 type Lib = ReturnType<typeof useLibrary>;
+type Guard = (fn: () => Promise<unknown>) => Promise<void>;
 
 export function Library({ lib }: { lib: Lib }) {
-  const [tab, setTab] = useState<'foods' | 'meals'>('foods');
+  const [tab, setTab] = useState<'foods' | 'recipes'>('foods');
   const [food, setFood] = useState<Food | 'new' | null>(null);
-  const [meal, setMeal] = useState<SavedMeal | 'new' | null>(null);
-  const [error, setError] = useState('');
+  const [recipe, setRecipe] = useState<Recipe | 'new' | null>(null);
 
-  const guard = async (fn: () => Promise<unknown>) => {
+  const guard: Guard = async (fn) => {
     try {
-      setError('');
       await fn();
     } catch (e) {
-      setError((e as Error).message);
+      window.alert((e as Error).message);
     }
   };
 
@@ -27,9 +27,8 @@ export function Library({ lib }: { lib: Lib }) {
     <div className="page">
       <div className="tabs">
         <button className={tab === 'foods' ? 'active' : ''} onClick={() => setTab('foods')}>Foods</button>
-        <button className={tab === 'meals' ? 'active' : ''} onClick={() => setTab('meals')}>Meals</button>
+        <button className={tab === 'recipes' ? 'active' : ''} onClick={() => setTab('recipes')}>Recipes</button>
       </div>
-      {error && <p className="error">{error}</p>}
 
       {tab === 'foods' ? (
         <>
@@ -38,41 +37,43 @@ export function Library({ lib }: { lib: Lib }) {
             {lib.foods.map((f) => (
               <li key={f.id}>
                 <button className="list-main" onClick={() => setFood(f)}>
-                  <span className="name">{f.name}{f.serving && <span className="muted"> · {f.serving}</span>}</span>
-                  <span className="sub">{fmt(f.kcal)} kcal · P{fmt(f.protein)} C{fmt(f.carbs)} F{fmt(f.fat)}</span>
+                  <span className="name">{f.name}</span>
+                  <span className="sub">per 100 g: {fmt(f.kcal)} kcal · P{fmt(f.protein)} C{fmt(f.carbs)} F{fmt(f.fat)}</span>
                 </button>
               </li>
             ))}
-            {lib.foods.length === 0 && <li className="muted pad">No saved foods yet.</li>}
+            {lib.foods.length === 0 && <li className="muted pad">No foods yet.</li>}
           </ul>
         </>
       ) : (
         <>
-          <button className="btn primary block" onClick={() => setMeal('new')}>+ New meal</button>
+          <button className="btn primary block" onClick={() => setRecipe('new')}>+ New recipe</button>
           <ul className="list card">
-            {lib.meals.map((m) => {
-              const t = sum(m.items);
+            {lib.recipes.map((r) => {
+              const t = sum(r.items.flatMap((i) => {
+                const f = lib.foods.find((x) => x.id === i.food_id);
+                return f ? [foodItem(f, i.grams)] : [];
+              }));
               return (
-                <li key={m.id}>
-                  <button className="list-main" onClick={() => setMeal(m)}>
-                    <span className="name">{m.name}</span>
-                    <span className="sub">{m.items.length} items · {fmt(t.kcal)} kcal · P{fmt(t.protein)} C{fmt(t.carbs)} F{fmt(t.fat)}</span>
+                <li key={r.id}>
+                  <button className="list-main" onClick={() => setRecipe(r)}>
+                    <span className="name">{r.name}</span>
+                    <span className="sub">{r.items.length} items · {fmt(t.kcal)} kcal · P{fmt(t.protein)} C{fmt(t.carbs)} F{fmt(t.fat)}</span>
                   </button>
                 </li>
               );
             })}
-            {lib.meals.length === 0 && <li className="muted pad">No saved meals yet. Log a meal, then tap “Save as meal”.</li>}
+            {lib.recipes.length === 0 && <li className="muted pad">No recipes yet. Add foods first, then build a recipe.</li>}
           </ul>
         </>
       )}
 
       {food && (
         <Sheet title={food === 'new' ? 'New food' : 'Edit food'} onClose={() => setFood(null)}>
-          <ItemForm
+          <FoodForm
             initial={food === 'new' ? undefined : food}
-            submitLabel="Save"
-            onSubmit={(item) => guard(async () => {
-              await lib.saveFood(food === 'new' ? item : { ...item, id: food.id });
+            onSubmit={(v) => guard(async () => {
+              await lib.saveFood(food === 'new' ? v : { ...v, id: food.id });
               setFood(null);
             })}
             onDelete={food === 'new' ? undefined : () => guard(async () => {
@@ -80,84 +81,50 @@ export function Library({ lib }: { lib: Lib }) {
               await lib.deleteFood(food.id);
               setFood(null);
             })}
-            extra={food !== 'new' && (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => guard(async () => {
-                  await lib.saveFood({ ...toItem(food), name: `${food.name} (copy)` });
-                  setFood(null);
-                })}
-              >
-                Duplicate (to make a variant, e.g. oat instead of soy)
-              </button>
-            )}
           />
         </Sheet>
       )}
 
-      {meal && <MealEditor lib={lib} meal={meal} onClose={() => setMeal(null)} guard={guard} />}
+      {recipe && <RecipeEditor lib={lib} recipe={recipe} onClose={() => setRecipe(null)} guard={guard} />}
     </div>
   );
 }
 
-function MealEditor({ lib, meal, onClose, guard }: {
-  lib: Lib;
-  meal: SavedMeal | 'new';
-  onClose: () => void;
-  guard: (fn: () => Promise<unknown>) => Promise<void>;
-}) {
-  const existing = meal === 'new' ? null : meal;
+interface Row {
+  food_id: string;
+  grams: string;
+}
+
+function RecipeEditor({ lib, recipe, onClose, guard }: { lib: Lib; recipe: Recipe | 'new'; onClose: () => void; guard: Guard }) {
+  const existing = recipe === 'new' ? null : recipe;
   const [name, setName] = useState(existing?.name ?? '');
   const [mt, setMt] = useState<MealType | ''>(existing?.meal_type ?? '');
-  const [items, setItems] = useState<Item[]>(existing?.items ?? []);
-  // index being replaced, 'add' for appending, null for closed
+  const [rows, setRows] = useState<Row[]>(existing?.items.map((i) => ({ food_id: i.food_id, grams: String(i.grams) })) ?? []);
+  // row index being swapped, 'add' to append, null when closed
   const [picking, setPicking] = useState<number | 'add' | null>(null);
-  const [editIdx, setEditIdx] = useState<number | null>(null);
 
-  const t = sum(items);
+  const foodOf = (id: string) => lib.foods.find((f) => f.id === id);
+  const total = sum(rows.flatMap((r) => {
+    const f = foodOf(r.food_id);
+    return f ? [foodItem(f, num(r.grams))] : [];
+  }));
 
-  if (editIdx !== null) {
+  if (picking !== null) {
     return (
-      <Sheet title="Edit item" onClose={() => setEditIdx(null)}>
-        <ItemForm
-          initial={items[editIdx]}
-          submitLabel="OK"
-          onSubmit={(item) => {
-            setItems((is) => is.map((x, i) => (i === editIdx ? item : x)));
-            setEditIdx(null);
+      <Sheet title={picking === 'add' ? 'Add food' : 'Swap food (grams stay)'} onClose={() => setPicking(null)}>
+        <FoodPicker
+          foods={lib.foods}
+          onPick={(f) => {
+            setRows((rs) => (picking === 'add' ? [...rs, { food_id: f.id, grams: '100' }] : rs.map((r, i) => (i === picking ? { ...r, food_id: f.id } : r))));
+            setPicking(null);
           }}
         />
       </Sheet>
     );
   }
 
-  if (picking !== null) {
-    return (
-      <Sheet title={picking === 'add' ? 'Add item' : 'Swap item'} onClose={() => setPicking(null)}>
-        <ul className="list">
-          {lib.foods.map((f) => (
-            <li key={f.id}>
-              <button
-                className="list-main"
-                onClick={() => {
-                  setItems((is) => (picking === 'add' ? [...is, toItem(f)] : is.map((x, i) => (i === picking ? toItem(f) : x))));
-                  setPicking(null);
-                }}
-              >
-                <span className="name">{f.name}</span>
-                <span className="sub">{fmt(f.kcal)} kcal · P{fmt(f.protein)} C{fmt(f.carbs)} F{fmt(f.fat)}</span>
-              </button>
-            </li>
-          ))}
-          {lib.foods.length === 0 && <li className="muted pad">Save some foods first.</li>}
-        </ul>
-      </Sheet>
-    );
-  }
-
   return (
-    <Sheet title={existing ? 'Edit meal' : 'New meal'} onClose={onClose}>
+    <Sheet title={existing ? 'Edit recipe' : 'New recipe'} onClose={onClose}>
       <div className="form">
         <label>
           Name
@@ -171,19 +138,26 @@ function MealEditor({ lib, meal, onClose, guard }: {
           </select>
         </label>
         <ul className="list">
-          {items.map((it, i) => (
+          {rows.map((r, i) => (
             <li key={i}>
-              <button className="list-main" onClick={() => setEditIdx(i)}>
-                <span className="name">{it.name}</span>
-                <span className="sub">{fmt(it.kcal)} kcal · P{fmt(it.protein)} C{fmt(it.carbs)} F{fmt(it.fat)}</span>
-              </button>
-              <button className="icon-btn" aria-label="Swap item" onClick={() => setPicking(i)}>⇄</button>
-              <button className="icon-btn" aria-label="Remove item" onClick={() => setItems((is) => is.filter((_, j) => j !== i))}>✕</button>
+              <span className="list-main">
+                <span className="name">{foodOf(r.food_id)?.name ?? '(deleted food)'}</span>
+              </span>
+              <input
+                className="grams-in"
+                inputMode="decimal"
+                value={r.grams}
+                onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, grams: e.target.value } : x)))}
+                aria-label="Grams"
+              />
+              <span className="muted">g</span>
+              <button className="icon-btn" aria-label="Swap food" onClick={() => setPicking(i)}>⇄</button>
+              <button className="icon-btn" aria-label="Remove food" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>✕</button>
             </li>
           ))}
         </ul>
-        <button type="button" className="btn" onClick={() => setPicking('add')}>+ Add item from foods</button>
-        <p className="muted">Total: {fmt(t.kcal)} kcal · P{fmt(t.protein)} C{fmt(t.carbs)} F{fmt(t.fat)}</p>
+        <button type="button" className="btn" onClick={() => setPicking('add')}>+ Add food</button>
+        <p className="muted">Total: {fmt(total.kcal)} kcal · P{fmt(total.protein)} C{fmt(total.carbs)} F{fmt(total.fat)}</p>
         <div className="row">
           {existing && (
             <button
@@ -191,7 +165,7 @@ function MealEditor({ lib, meal, onClose, guard }: {
               className="btn danger"
               onClick={() => guard(async () => {
                 if (!window.confirm(`Delete ${existing.name}?`)) return;
-                await lib.deleteMeal(existing.id);
+                await lib.deleteRecipe(existing.id);
                 onClose();
               })}
             >
@@ -200,13 +174,18 @@ function MealEditor({ lib, meal, onClose, guard }: {
           )}
           <button
             className="btn primary grow"
-            disabled={!name.trim() || items.length === 0}
+            disabled={!name.trim() || rows.length === 0}
             onClick={() => guard(async () => {
-              await lib.saveMeal({ id: existing?.id, name: name.trim(), meal_type: mt || null, items });
+              await lib.saveRecipe({
+                id: existing?.id,
+                name: name.trim(),
+                meal_type: mt || null,
+                items: rows.map((r) => ({ food_id: r.food_id, grams: num(r.grams) })),
+              });
               onClose();
             })}
           >
-            Save meal
+            Save recipe
           </button>
         </div>
       </div>

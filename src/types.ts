@@ -13,22 +13,31 @@ export interface Macros {
   fat: number;
 }
 
-export interface Item extends Macros {
-  name: string;
-  serving: string | null;
-}
-
-export interface Food extends Item {
+/** A food. Values are per 100 g. */
+export interface Food extends Macros {
   id: string;
+  name: string;
   use_count: number;
 }
 
-export interface SavedMeal {
+export interface RecipeItem {
+  food_id: string;
+  grams: number;
+}
+
+export interface Recipe {
   id: string;
   name: string;
   meal_type: MealType | null;
-  items: Item[];
+  items: RecipeItem[];
   use_count: number;
+}
+
+/** One thing eaten, with its own final numbers. */
+export interface Item extends Macros {
+  name: string;
+  grams: number | null;
+  food_id: string | null;
 }
 
 export interface Entry extends Item {

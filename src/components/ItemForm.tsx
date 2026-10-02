@@ -1,54 +1,69 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Item } from '../types';
-import { scale } from '../util';
+import { num, round } from '../util';
 
 const blank = (v: number) => (v ? String(v) : '');
-const num = (s: string) => {
-  const n = parseFloat(s.replace(',', '.'));
-  return Number.isFinite(n) ? n : 0;
-};
+type Key = 'kcal' | 'protein' | 'carbs' | 'fat';
 
 interface Props {
   initial?: Item;
   submitLabel: string;
-  /** Show a servings multiplier (used when adding from the library). */
-  servings?: boolean;
-  /** Show a "save to my foods" checkbox. */
-  offerSave?: boolean;
-  onSubmit: (item: Item, opts: { save: boolean }) => void | Promise<void>;
+  onSubmit: (item: Item) => void | Promise<void>;
   onDelete?: () => void;
   extra?: React.ReactNode;
 }
 
-export function ItemForm({ initial, submitLabel, servings, offerSave, onSubmit, onDelete, extra }: Props) {
+/** Form for one thing eaten. Totals for what you ate, not per 100 g. */
+export function ItemForm({ initial, submitLabel, onSubmit, onDelete, extra }: Props) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [serving, setServing] = useState(initial?.serving ?? '');
-  const [kcal, setKcal] = useState(blank(initial?.kcal ?? 0));
-  const [protein, setProtein] = useState(blank(initial?.protein ?? 0));
-  const [carbs, setCarbs] = useState(blank(initial?.carbs ?? 0));
-  const [fat, setFat] = useState(blank(initial?.fat ?? 0));
-  const [qty, setQty] = useState('1');
-  const [save, setSave] = useState(Boolean(offerSave));
+  const [grams, setGrams] = useState(initial?.grams ? String(initial.grams) : '');
+  const [f, setF] = useState<Record<Key, string>>({
+    kcal: blank(initial?.kcal ?? 0),
+    protein: blank(initial?.protein ?? 0),
+    carbs: blank(initial?.carbs ?? 0),
+    fat: blank(initial?.fat ?? 0),
+  });
   const [busy, setBusy] = useState(false);
+  // Numbers to scale from when grams change.
+  const base = useRef({ g: initial?.grams ?? 0, kcal: initial?.kcal ?? 0, protein: initial?.protein ?? 0, carbs: initial?.carbs ?? 0, fat: initial?.fat ?? 0 });
 
-  // Auto-estimate calories from macros when the user hasn't typed any.
-  const estimate = Math.round(num(protein) * 4 + num(carbs) * 4 + num(fat) * 9);
+  const onGrams = (v: string) => {
+    setGrams(v);
+    const g = num(v);
+    const b = base.current;
+    if (b.g > 0 && g > 0) {
+      const k = g / b.g;
+      setF({
+        kcal: blank(round(b.kcal * k)),
+        protein: blank(round(b.protein * k)),
+        carbs: blank(round(b.carbs * k)),
+        fat: blank(round(b.fat * k)),
+      });
+    }
+  };
+
+  const onField = (key: Key, v: string) => {
+    const next = { ...f, [key]: v };
+    setF(next);
+    base.current = { g: num(grams), kcal: num(next.kcal), protein: num(next.protein), carbs: num(next.carbs), fat: num(next.fat) };
+  };
+
+  const estimate = Math.round(num(f.protein) * 4 + num(f.carbs) * 4 + num(f.fat) * 9);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     setBusy(true);
     try {
-      let item: Item = {
+      await onSubmit({
         name: name.trim(),
-        serving: serving.trim() || null,
-        kcal: kcal === '' ? estimate : num(kcal),
-        protein: num(protein),
-        carbs: num(carbs),
-        fat: num(fat),
-      };
-      if (servings) item = scale(item, num(qty) || 1);
-      await onSubmit(item, { save });
+        grams: num(grams) > 0 ? num(grams) : null,
+        food_id: initial?.food_id ?? null,
+        kcal: f.kcal === '' ? estimate : num(f.kcal),
+        protein: num(f.protein),
+        carbs: num(f.carbs),
+        fat: num(f.fat),
+      });
     } finally {
       setBusy(false);
     }
@@ -58,43 +73,31 @@ export function ItemForm({ initial, submitLabel, servings, offerSave, onSubmit, 
     <form onSubmit={submit} className="form">
       <label>
         Name
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Coffee with soy milk" required autoFocus={!initial} />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Restaurant lunch" required autoFocus={!initial} />
       </label>
       <label>
-        Serving (optional)
-        <input value={serving} onChange={(e) => setServing(e.target.value)} placeholder="e.g. 1 cup, 100 g" />
+        Grams (optional)
+        <input inputMode="decimal" value={grams} onChange={(e) => onGrams(e.target.value)} placeholder="e.g. 150" />
       </label>
       <div className="grid4">
         <label>
           kcal
-          <input inputMode="decimal" value={kcal} onChange={(e) => setKcal(e.target.value)} placeholder={estimate ? String(estimate) : '0'} />
+          <input inputMode="decimal" value={f.kcal} onChange={(e) => onField('kcal', e.target.value)} placeholder={estimate ? String(estimate) : '0'} />
         </label>
         <label>
           Protein g
-          <input inputMode="decimal" value={protein} onChange={(e) => setProtein(e.target.value)} placeholder="0" />
+          <input inputMode="decimal" value={f.protein} onChange={(e) => onField('protein', e.target.value)} placeholder="0" />
         </label>
         <label>
           Carbs g
-          <input inputMode="decimal" value={carbs} onChange={(e) => setCarbs(e.target.value)} placeholder="0" />
+          <input inputMode="decimal" value={f.carbs} onChange={(e) => onField('carbs', e.target.value)} placeholder="0" />
         </label>
         <label>
           Fat g
-          <input inputMode="decimal" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="0" />
+          <input inputMode="decimal" value={f.fat} onChange={(e) => onField('fat', e.target.value)} placeholder="0" />
         </label>
       </div>
-      {servings && (
-        <label>
-          Servings
-          <input inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
-        </label>
-      )}
       {extra}
-      {offerSave && (
-        <label className="check">
-          <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
-          Save to my foods for quick reuse
-        </label>
-      )}
       <div className="row">
         {onDelete && (
           <button type="button" className="btn danger" onClick={onDelete}>

@@ -3,7 +3,7 @@ import { useEntries } from '../db';
 import type { useLibrary } from '../db';
 import type { Entry, MealType } from '../types';
 import { MEAL_TYPES } from '../types';
-import { fmt, prettyDate, shiftDate, sum, toItem, todayStr } from '../util';
+import { fmt, prettyDate, shiftDate, sum, todayStr } from '../util';
 import { AddSheet } from './AddSheet';
 import { ItemForm } from './ItemForm';
 import { Sheet } from './Sheet';
@@ -53,13 +53,23 @@ export function Today({ lib, date, setDate }: { lib: Lib; date: string; setDate:
   const remaining = settings.kcal_target - total.kcal;
   const pct = Math.min(100, (total.kcal / settings.kcal_target) * 100);
 
-  const saveAsMeal = (mt: MealType) =>
+  const saveAsRecipe = (mt: MealType) =>
     guard(async () => {
-      const items = entries.filter((e) => e.meal_type === mt).map(toItem);
+      const list = entries.filter((e) => e.meal_type === mt);
+      const usable = list.filter((e) => e.food_id && e.grams);
+      if (usable.length === 0) {
+        window.alert('Only foods with grams can go in a recipe. Quick entries are skipped.');
+        return;
+      }
       const label = MEAL_TYPES.find((m) => m.id === mt)!.label;
-      const name = window.prompt(`Save these ${items.length} items as a meal. Name:`, label);
+      const skipped = list.length - usable.length;
+      const name = window.prompt(`Save ${usable.length} items as a recipe${skipped ? ` (${skipped} skipped)` : ''}. Name:`, label);
       if (!name?.trim()) return;
-      await lib.saveMeal({ name: name.trim(), meal_type: mt, items });
+      await lib.saveRecipe({
+        name: name.trim(),
+        meal_type: mt,
+        items: usable.map((e) => ({ food_id: e.food_id!, grams: e.grams! })),
+      });
     });
 
   return (
@@ -105,7 +115,7 @@ export function Today({ lib, date, setDate }: { lib: Lib; date: string; setDate:
                   <button className="list-main" onClick={() => setEditing(e)}>
                     <span className="name">
                       {e.name}
-                      {e.serving && <span className="muted"> · {e.serving}</span>}
+                      {e.grams ? <span className="muted"> · {fmt(e.grams)} g</span> : null}
                     </span>
                     <span className="sub">
                       P{fmt(e.protein)} C{fmt(e.carbs)} F{fmt(e.fat)}
@@ -121,7 +131,7 @@ export function Today({ lib, date, setDate }: { lib: Lib; date: string; setDate:
               {list.length === 0 ? (
                 <button className="btn" onClick={() => guard(() => copyFrom(shiftDate(date, -1), id))}>Copy yesterday</button>
               ) : (
-                <button className="btn" onClick={() => saveAsMeal(id)}>Save as meal</button>
+                <button className="btn" onClick={() => saveAsRecipe(id)}>Save as recipe</button>
               )}
             </div>
           </section>
@@ -132,22 +142,20 @@ export function Today({ lib, date, setDate }: { lib: Lib; date: string; setDate:
         <AddSheet
           mealType={adding}
           foods={lib.foods}
-          meals={lib.meals}
+          recipes={lib.recipes}
           onAdd={(items) => addEntries(items, adding)}
-          onSaveFood={lib.saveFood}
           onUsed={lib.bumpUse}
           onClose={() => setAdding(null)}
         />
       )}
 
-      {editing && <EditEntry entry={editing} onClose={() => setEditing(null)} onSave={(p) => guard(() => updateEntry(editing.id, p))} onDelete={() => guard(() => deleteEntry(editing.id))} lib={lib} />}
+      {editing && <EditEntry entry={editing} onClose={() => setEditing(null)} onSave={(p) => guard(() => updateEntry(editing.id, p))} onDelete={() => guard(() => deleteEntry(editing.id))} />}
     </div>
   );
 }
 
-function EditEntry({ entry, lib, onSave, onDelete, onClose }: {
+function EditEntry({ entry, onSave, onDelete, onClose }: {
   entry: Entry;
-  lib: Lib;
   onSave: (p: Partial<Entry>) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
   onClose: () => void;
@@ -176,16 +184,6 @@ function EditEntry({ entry, lib, onSave, onDelete, onClose }: {
                 ))}
               </select>
             </label>
-            <button
-              type="button"
-              className="btn"
-              onClick={async () => {
-                await lib.saveFood(toItem(entry));
-                onClose();
-              }}
-            >
-              Save as food
-            </button>
           </>
         }
       />
