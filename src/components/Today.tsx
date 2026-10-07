@@ -3,7 +3,7 @@ import { useEntries } from '../db';
 import type { useLibrary } from '../db';
 import type { Entry, MealType } from '../types';
 import { MEAL_TYPES } from '../types';
-import { fmt, prettyDate, shiftDate, sum, todayStr } from '../util';
+import { fmt, macroLine, prettyDate, shiftDate, sum, todayStr } from '../util';
 import { AddSheet } from './AddSheet';
 import { ItemForm } from './ItemForm';
 import { Sheet } from './Sheet';
@@ -56,9 +56,9 @@ export function Today({ lib, date, setDate }: { lib: Lib; date: string; setDate:
   const saveAsRecipe = (mt: MealType) =>
     guard(async () => {
       const list = entries.filter((e) => e.meal_type === mt);
-      const usable = list.filter((e) => e.food_id && e.grams);
+      const usable = list.filter((e) => e.food_id && (e.grams || e.pieces));
       if (usable.length === 0) {
-        window.alert('Only foods with grams can go in a recipe. Quick entries are skipped.');
+        window.alert('Only foods with grams or pieces can go in a recipe. Quick entries are skipped.');
         return;
       }
       const label = MEAL_TYPES.find((m) => m.id === mt)!.label;
@@ -68,7 +68,7 @@ export function Today({ lib, date, setDate }: { lib: Lib; date: string; setDate:
       await lib.saveRecipe({
         name: name.trim(),
         meal_type: mt,
-        items: usable.map((e) => ({ food_id: e.food_id!, grams: e.grams! })),
+        items: usable.map((e) => ({ food_id: e.food_id!, amount: (e.grams ?? e.pieces)! })),
       });
     });
 
@@ -95,6 +95,7 @@ export function Today({ lib, date, setDate }: { lib: Lib; date: string; setDate:
           <Bar label="Protein" value={total.protein} target={settings.protein_target} unit="g" />
           <Bar label="Carbs" value={total.carbs} target={settings.carbs_target} unit="g" />
           <Bar label="Fat" value={total.fat} target={settings.fat_target} unit="g" />
+          <Bar label="Fibre" value={total.fibre} target={settings.fibre_target} unit="g" />
         </div>
       </section>
 
@@ -116,9 +117,10 @@ export function Today({ lib, date, setDate }: { lib: Lib; date: string; setDate:
                     <span className="name">
                       {e.name}
                       {e.grams ? <span className="muted"> · {fmt(e.grams)} g</span> : null}
+                      {e.pieces ? <span className="muted"> · {fmt(e.pieces)} {e.pieces === 1 ? 'pc' : 'pcs'}</span> : null}
                     </span>
                     <span className="sub">
-                      P{fmt(e.protein)} C{fmt(e.carbs)} F{fmt(e.fat)}
+                      {macroLine(e)}
                     </span>
                   </button>
                   <span className="kcal">{fmt(e.kcal)}</span>

@@ -15,6 +15,7 @@ export function SettingsPage({ lib, email }: { lib: Lib; email: string }) {
   const [p, setP] = useState(s.protein_target?.toString() ?? '');
   const [c, setC] = useState(s.carbs_target?.toString() ?? '');
   const [f, setF] = useState(s.fat_target?.toString() ?? '');
+  const [fi, setFi] = useState(s.fibre_target?.toString() ?? '');
   const [msg, setMsg] = useState('');
 
   const save = async (e: React.FormEvent) => {
@@ -25,6 +26,7 @@ export function SettingsPage({ lib, email }: { lib: Lib; email: string }) {
         protein_target: toNum(p),
         carbs_target: toNum(c),
         fat_target: toNum(f),
+        fibre_target: toNum(fi),
       });
       setMsg('Saved ✓');
     } catch (err) {
@@ -40,7 +42,7 @@ export function SettingsPage({ lib, email }: { lib: Lib; email: string }) {
           Calories (kcal)
           <input inputMode="numeric" value={kcal} onChange={(e) => setKcal(e.target.value)} />
         </label>
-        <div className="grid3">
+        <div className="grid2">
           <label>
             Protein g
             <input inputMode="numeric" value={p} onChange={(e) => setP(e.target.value)} placeholder="optional" />
@@ -52,6 +54,10 @@ export function SettingsPage({ lib, email }: { lib: Lib; email: string }) {
           <label>
             Fat g
             <input inputMode="numeric" value={f} onChange={(e) => setF(e.target.value)} placeholder="optional" />
+          </label>
+          <label>
+            Fibre g
+            <input inputMode="numeric" value={fi} onChange={(e) => setFi(e.target.value)} placeholder="optional" />
           </label>
         </div>
         <button className="btn primary">Save targets</button>

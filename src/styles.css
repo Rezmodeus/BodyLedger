@@ -25,7 +25,7 @@ h1, h2, h3 { margin: 0; } h2 { font-size: 1.05rem; } h3.section { font-size: .8r
 .neg { color: var(--danger); }
 .track { height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; margin: 4px 0; }
 .fill { height: 100%; background: var(--accent); border-radius: 99px; } .fill.over { background: var(--danger); }
-.macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+.macros { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
 .macro-head { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); } .macro-head span:last-child { color: var(--text); font-weight: 600; }
 .macro-left { font-size: .75rem; color: var(--muted); }
 .list { list-style: none; margin: 0; padding: 0; }
@@ -42,7 +42,7 @@ h1, h2, h3 { margin: 0; } h2 { font-size: 1.05rem; } h3.section { font-size: .8r
 .form label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
 input, select { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; font-size: 16px; color: var(--text); width: 100%; min-width: 0; }
 .check { flex-direction: row !important; align-items: center; gap: 10px !important; } .check input { width: 22px; height: 22px; }
-.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; } .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .search { margin-bottom: 10px; }
 .tabs { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
 .tabs button { flex: 1; border: 0; background: none; padding: 10px; border-radius: 9px; font-weight: 600; color: var(--muted); }

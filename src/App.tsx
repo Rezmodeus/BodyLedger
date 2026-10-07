@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { configured, supabase } from './supabase';
-import { useLibrary } from './db';
+import { useBody, useLibrary } from './db';
 import { Auth } from './components/Auth';
 import { Today } from './components/Today';
+import { Body } from './components/Body';
 import { Library } from './components/Library';
 import { SettingsPage } from './components/SettingsPage';
 import { todayStr } from './util';
 
-type Tab = 'today' | 'library' | 'settings';
+type Tab = 'today' | 'body' | 'library' | 'settings';
 
 export function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -34,6 +35,7 @@ export function App() {
 
 function Authed({ email }: { email: string }) {
   const lib = useLibrary();
+  const body = useBody();
   const [tab, setTab] = useState<Tab>('today');
   const [date, setDate] = useState(todayStr());
 
@@ -44,6 +46,8 @@ function Authed({ email }: { email: string }) {
         <p className="muted center">Loading…</p>
       ) : tab === 'today' ? (
         <Today lib={lib} date={date} setDate={setDate} />
+      ) : tab === 'body' ? (
+        <Body body={body} />
       ) : tab === 'library' ? (
         <Library lib={lib} />
       ) : (
@@ -51,6 +55,7 @@ function Authed({ email }: { email: string }) {
       )}
       <nav className="bottomnav">
         <button className={tab === 'today' ? 'active' : ''} onClick={() => setTab('today')}>Log</button>
+        <button className={tab === 'body' ? 'active' : ''} onClick={() => setTab('body')}>Body</button>
         <button className={tab === 'library' ? 'active' : ''} onClick={() => setTab('library')}>Library</button>
         <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>Targets</button>
       </nav>

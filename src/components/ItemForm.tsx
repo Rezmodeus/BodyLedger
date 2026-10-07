@@ -3,7 +3,7 @@ import type { Item } from '../types';
 import { num, round } from '../util';
 
 const blank = (v: number) => (v ? String(v) : '');
-type Key = 'kcal' | 'protein' | 'carbs' | 'fat';
+type Key = 'kcal' | 'protein' | 'carbs' | 'fat' | 'fibre';
 
 interface Props {
   initial?: Item;
@@ -16,16 +16,19 @@ interface Props {
 /** Form for one thing eaten. Totals for what you ate, not per 100 g. */
 export function ItemForm({ initial, submitLabel, onSubmit, onDelete, extra }: Props) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [grams, setGrams] = useState(initial?.grams ? String(initial.grams) : '');
+  // An entry counted in pieces shows a pieces field instead of grams.
+  const byPiece = !!initial?.pieces;
+  const [grams, setGrams] = useState(String(initial?.pieces ?? initial?.grams ?? '') );
   const [f, setF] = useState<Record<Key, string>>({
     kcal: blank(initial?.kcal ?? 0),
     protein: blank(initial?.protein ?? 0),
     carbs: blank(initial?.carbs ?? 0),
     fat: blank(initial?.fat ?? 0),
+    fibre: blank(initial?.fibre ?? 0),
   });
   const [busy, setBusy] = useState(false);
   // Numbers to scale from when grams change.
-  const base = useRef({ g: initial?.grams ?? 0, kcal: initial?.kcal ?? 0, protein: initial?.protein ?? 0, carbs: initial?.carbs ?? 0, fat: initial?.fat ?? 0 });
+  const base = useRef({ g: initial?.pieces ?? initial?.grams ?? 0, kcal: initial?.kcal ?? 0, protein: initial?.protein ?? 0, carbs: initial?.carbs ?? 0, fat: initial?.fat ?? 0, fibre: initial?.fibre ?? 0 });
 
   const onGrams = (v: string) => {
     setGrams(v);
@@ -38,6 +41,7 @@ export function ItemForm({ initial, submitLabel, onSubmit, onDelete, extra }: Pr
         protein: blank(round(b.protein * k)),
         carbs: blank(round(b.carbs * k)),
         fat: blank(round(b.fat * k)),
+        fibre: blank(round(b.fibre * k)),
       });
     }
   };
@@ -45,7 +49,7 @@ export function ItemForm({ initial, submitLabel, onSubmit, onDelete, extra }: Pr
   const onField = (key: Key, v: string) => {
     const next = { ...f, [key]: v };
     setF(next);
-    base.current = { g: num(grams), kcal: num(next.kcal), protein: num(next.protein), carbs: num(next.carbs), fat: num(next.fat) };
+    base.current = { g: num(grams), kcal: num(next.kcal), protein: num(next.protein), carbs: num(next.carbs), fat: num(next.fat), fibre: num(next.fibre) };
   };
 
   const estimate = Math.round(num(f.protein) * 4 + num(f.carbs) * 4 + num(f.fat) * 9);
@@ -57,12 +61,14 @@ export function ItemForm({ initial, submitLabel, onSubmit, onDelete, extra }: Pr
     try {
       await onSubmit({
         name: name.trim(),
-        grams: num(grams) > 0 ? num(grams) : null,
+        grams: !byPiece && num(grams) > 0 ? num(grams) : null,
+        pieces: byPiece && num(grams) > 0 ? num(grams) : null,
         food_id: initial?.food_id ?? null,
         kcal: f.kcal === '' ? estimate : num(f.kcal),
         protein: num(f.protein),
         carbs: num(f.carbs),
         fat: num(f.fat),
+        fibre: num(f.fibre),
       });
     } finally {
       setBusy(false);
@@ -76,10 +82,10 @@ export function ItemForm({ initial, submitLabel, onSubmit, onDelete, extra }: Pr
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Restaurant lunch" required autoFocus={!initial} />
       </label>
       <label>
-        Grams (optional)
+        {byPiece ? 'Pieces' : 'Grams (optional)'}
         <input inputMode="decimal" value={grams} onChange={(e) => onGrams(e.target.value)} placeholder="e.g. 150" />
       </label>
-      <div className="grid4">
+      <div className="grid3">
         <label>
           kcal
           <input inputMode="decimal" value={f.kcal} onChange={(e) => onField('kcal', e.target.value)} placeholder={estimate ? String(estimate) : '0'} />
@@ -95,6 +101,10 @@ export function ItemForm({ initial, submitLabel, onSubmit, onDelete, extra }: Pr
         <label>
           Fat g
           <input inputMode="decimal" value={f.fat} onChange={(e) => onField('fat', e.target.value)} placeholder="0" />
+        </label>
+        <label>
+          Fibre g
+          <input inputMode="decimal" value={f.fibre} onChange={(e) => onField('fibre', e.target.value)} placeholder="0" />
         </label>
       </div>
       {extra}

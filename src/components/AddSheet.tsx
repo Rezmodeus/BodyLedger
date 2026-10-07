@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Food, Item, MealType, Recipe } from '../types';
 import { MEAL_TYPES } from '../types';
-import { fmt, foodItem, num, recipeItems, sum } from '../util';
+import { fmt, foodItem, macroLine, num, perLabel, recipeItems, sum } from '../util';
 import { ItemForm } from './ItemForm';
 import { Sheet } from './Sheet';
 
@@ -56,7 +56,7 @@ export function AddSheet({ mealType, foods, recipes, onAdd, onUsed, onClose }: P
     const f = view.food;
     return (
       <Sheet title={f.name} onClose={() => setView({ kind: 'list' })}>
-        <GramsStep
+        <AmountStep
           food={f}
           label={label}
           onAdd={(item) => {
@@ -108,7 +108,7 @@ export function AddSheet({ mealType, foods, recipes, onAdd, onUsed, onClose }: P
               >
                 <span className="name">{r.name}</span>
                 <span className="sub">
-                  {items.length} items · {fmt(t.kcal)} kcal · P{fmt(t.protein)} C{fmt(t.carbs)} F{fmt(t.fat)}
+                  {items.length} items · {fmt(t.kcal)} kcal · {macroLine(t)}
                 </span>
               </button>
               <button className="icon-btn" aria-label={`Adjust ${r.name}`} onClick={() => setView({ kind: 'recipe', recipe: r })}>
@@ -126,7 +126,7 @@ export function AddSheet({ mealType, foods, recipes, onAdd, onUsed, onClose }: P
             <button className="list-main" onClick={() => setView({ kind: 'food', food: f })}>
               <span className="name">{f.name}</span>
               <span className="sub">
-                per 100 g: {fmt(f.kcal)} kcal · P{fmt(f.protein)} C{fmt(f.carbs)} F{fmt(f.fat)}
+                {perLabel(f)}: {fmt(f.kcal)} kcal · {macroLine(f)}
               </span>
             </button>
           </li>
@@ -146,9 +146,10 @@ export function AddSheet({ mealType, foods, recipes, onAdd, onUsed, onClose }: P
   );
 }
 
-function GramsStep({ food, label, onAdd }: { food: Food; label: string; onAdd: (item: Item) => void | Promise<void> }) {
-  const [grams, setGrams] = useState('100');
-  const g = num(grams);
+function AmountStep({ food, label, onAdd }: { food: Food; label: string; onAdd: (item: Item) => void | Promise<void> }) {
+  const piece = food.unit === 'piece';
+  const [amount, setAmount] = useState(piece ? '1' : '100');
+  const g = num(amount);
   const item = foodItem(food, g);
   return (
     <form
@@ -159,11 +160,11 @@ function GramsStep({ food, label, onAdd }: { food: Food; label: string; onAdd: (
       }}
     >
       <label>
-        Grams
-        <input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} autoFocus onFocus={(e) => e.target.select()} />
+        {piece ? 'Pieces' : 'Grams'}
+        <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus onFocus={(e) => e.target.select()} />
       </label>
       <p className="muted">
-        {fmt(item.kcal)} kcal · P{fmt(item.protein)} C{fmt(item.carbs)} F{fmt(item.fat)}
+        {fmt(item.kcal)} kcal · {macroLine(item)}
       </p>
       <button className="btn primary" disabled={g <= 0}>
         Add to {label}
@@ -173,12 +174,12 @@ function GramsStep({ food, label, onAdd }: { food: Food; label: string; onAdd: (
 }
 
 function RecipeStep({ recipe, foods, label, onAdd }: { recipe: Recipe; foods: Food[]; label: string; onAdd: (items: Item[]) => void | Promise<void> }) {
-  const [grams, setGrams] = useState(recipe.items.map((i) => String(i.grams)));
+  const [amounts, setAmounts] = useState(recipe.items.map((i) => String(i.amount)));
   const rows = recipe.items.flatMap((ri, idx) => {
     const food = foods.find((f) => f.id === ri.food_id);
     return food ? [{ idx, food }] : [];
   });
-  const items = rows.map(({ idx, food }) => foodItem(food, num(grams[idx])));
+  const items = rows.map(({ idx, food }) => foodItem(food, num(amounts[idx])));
   const t = sum(items);
   return (
     <div className="form">
@@ -191,18 +192,18 @@ function RecipeStep({ recipe, foods, label, onAdd }: { recipe: Recipe; foods: Fo
             <input
               className="grams-in"
               inputMode="decimal"
-              value={grams[idx]}
-              onChange={(e) => setGrams((gs) => gs.map((g, i) => (i === idx ? e.target.value : g)))}
-              aria-label={`Grams of ${food.name}`}
+              value={amounts[idx]}
+              onChange={(e) => setAmounts((as) => as.map((a, i) => (i === idx ? e.target.value : a)))}
+              aria-label={`Amount of ${food.name}`}
             />
-            <span className="muted"> g</span>
+            <span className="muted"> {food.unit === 'piece' ? 'pcs' : 'g'}</span>
           </li>
         ))}
       </ul>
       <p className="muted">
-        {fmt(t.kcal)} kcal · P{fmt(t.protein)} C{fmt(t.carbs)} F{fmt(t.fat)}
+        {fmt(t.kcal)} kcal · {macroLine(t)}
       </p>
-      <button className="btn primary" onClick={() => void onAdd(items.filter((i) => (i.grams ?? 0) > 0))}>
+      <button className="btn primary" onClick={() => void onAdd(items.filter((i) => (i.grams ?? i.pieces ?? 0) > 0))}>
         Add to {label}
       </button>
     </div>

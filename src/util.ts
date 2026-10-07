@@ -1,6 +1,6 @@
 import type { Food, Item, Macros, Recipe } from './types';
 
-export const ZERO: Macros = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+export const ZERO: Macros = { kcal: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 };
 
 export function sum(items: Macros[]): Macros {
   return items.reduce(
@@ -9,6 +9,7 @@ export function sum(items: Macros[]): Macros {
       protein: a.protein + i.protein,
       carbs: a.carbs + i.carbs,
       fat: a.fat + i.fat,
+      fibre: a.fibre + i.fibre,
     }),
     ZERO,
   );
@@ -17,23 +18,36 @@ export function sum(items: Macros[]): Macros {
 export const round = (n: number) => Math.round(n * 10) / 10;
 export const fmt = (n: number) => String(Math.round(n));
 
-export function foodItem(f: Food, grams: number): Item {
-  const k = grams / 100;
+/** "P12 C30 F4 Fi2" */
+export const macroLine = (m: Macros) => `P${fmt(m.protein)} C${fmt(m.carbs)} F${fmt(m.fat)} Fi${fmt(m.fibre)}`;
+
+/** "per 100 g" or "per piece" */
+export const perLabel = (f: Food) => (f.unit === 'piece' ? 'per piece' : 'per 100 g');
+
+/** "150 g" or "5 pcs" for an amount of a food. */
+export const amountLabel = (f: Food, amount: number) => `${fmt(amount)} ${f.unit === 'piece' ? (amount === 1 ? 'pc' : 'pcs') : 'g'}`;
+
+/** Item for `amount` of a food: grams for a per-100-g food, pieces for a per-piece food. */
+export function foodItem(f: Food, amount: number): Item {
+  const piece = f.unit === 'piece';
+  const k = piece ? amount : amount / 100;
   return {
     name: f.name,
-    grams,
+    grams: piece ? null : amount,
+    pieces: piece ? amount : null,
     food_id: f.id,
     kcal: round(f.kcal * k),
     protein: round(f.protein * k),
     carbs: round(f.carbs * k),
     fat: round(f.fat * k),
+    fibre: round(f.fibre * k),
   };
 }
 
 export function recipeItems(r: Recipe, foods: Food[]): Item[] {
   return r.items.flatMap((i) => {
     const f = foods.find((x) => x.id === i.food_id);
-    return f ? [foodItem(f, i.grams)] : [];
+    return f ? [foodItem(f, i.amount)] : [];
   });
 }
 

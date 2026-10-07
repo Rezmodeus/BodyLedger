@@ -3,9 +3,10 @@
 Personal food and macro tracker. Mobile-first PWA, data synced through Supabase (free tier), static frontend.
 
 ## Features (v1)
-- Log what you eat in Breakfast / Lunch / Dinner / Snacks, with kcal, protein, carbs and fat.
-- Daily total, calories left against your target, and optional protein/carb/fat targets.
-- **Foods**: kcal and macros per 100 g (Greek yoghurt, berries, Shreddies...).
+- Log what you eat in Breakfast / Lunch / Dinner / Snacks, with kcal, protein, carbs, fat and fibre.
+- Daily total, calories left against your target, and optional protein/carb/fat/fibre targets.
+- **Foods**: kcal and macros per 100 g (Greek yoghurt, berries, Shreddies...), or per piece for things you count (e.g. candy: 50 kcal per piece, log 5 pieces).
+- **Body**: register weight (kg, decimals) and waist (cm) per day.
 - **Recipes**: a list of foods with grams (e.g. your usual breakfast). One tap logs the whole recipe. Tap ✎ to change grams first. In the Library you can swap a food (⇄) and the grams stay.
 - Log one food: tap it, type grams, add.
 - **Quick entry**: type name and numbers directly, nothing is saved (good for restaurants).
@@ -24,4 +25,4 @@ Personal food and macro tracker. Mobile-first PWA, data synced through Supabase 
 Any static host works (Cloudflare Pages, Netlify, Vercel). Build command `npm run build`, output `dist`, and set the two `VITE_SUPABASE_*` variables. Open the URL on your phone and use "Add to Home Screen" to install.
 
 ## Roadmap
-Tables are keyed by `user_id` and `entry_date`, so a daily history/calendar and body metrics (weight, waist, activity, training) can be added as new tables and tabs without changing the food data.
+A statistics screen (day/week/month totals, weight and waist trends). Tables are keyed by `user_id` and `entry_date`, so a daily history/calendar and body metrics (weight, waist, activity, training) can be added as new tables and tabs without changing the food data.

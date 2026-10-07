@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Food } from '../types';
-import { fmt } from '../util';
+import { fmt, macroLine, perLabel } from '../util';
 
 export function FoodPicker({ foods, onPick }: { foods: Food[]; onPick: (f: Food) => void }) {
   const [q, setQ] = useState('');
@@ -14,7 +14,7 @@ export function FoodPicker({ foods, onPick }: { foods: Food[]; onPick: (f: Food)
           <li key={f.id}>
             <button className="list-main" onClick={() => onPick(f)}>
               <span className="name">{f.name}</span>
-              <span className="sub">per 100 g: {fmt(f.kcal)} kcal · P{fmt(f.protein)} C{fmt(f.carbs)} F{fmt(f.fat)}</span>
+              <span className="sub">{perLabel(f)}: {fmt(f.kcal)} kcal · {macroLine(f)}</span>
             </button>
           </li>
         ))}

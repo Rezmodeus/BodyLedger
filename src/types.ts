@@ -11,18 +11,23 @@ export interface Macros {
   protein: number;
   carbs: number;
   fat: number;
+  fibre: number;
 }
 
-/** A food. Values are per 100 g. */
+export type Unit = 'g' | 'piece';
+
+/** A food. Values are per 100 g, or per piece when unit is 'piece'. */
 export interface Food extends Macros {
   id: string;
   name: string;
+  unit: Unit;
   use_count: number;
 }
 
 export interface RecipeItem {
   food_id: string;
-  grams: number;
+  /** Grams for a per-100-g food, pieces for a per-piece food. */
+  amount: number;
 }
 
 export interface Recipe {
@@ -37,6 +42,7 @@ export interface Recipe {
 export interface Item extends Macros {
   name: string;
   grams: number | null;
+  pieces: number | null;
   food_id: string | null;
 }
 
@@ -51,4 +57,12 @@ export interface Settings {
   protein_target: number | null;
   carbs_target: number | null;
   fat_target: number | null;
+  fibre_target: number | null;
+}
+
+/** One day of body measurements. */
+export interface BodyMeasurement {
+  measured_date: string;
+  weight_kg: number | null;
+  waist_cm: number | null;
 }

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
-import type { Entry, Food, Item, MealType, Macros, Recipe, RecipeItem, Settings } from './types';
+import type { BodyMeasurement, Entry, Food, Item, MealType, Macros, Recipe, RecipeItem, Settings, Unit } from './types';
 
 const DEFAULT_SETTINGS: Settings = {
   kcal_target: 2000,
   protein_target: null,
   carbs_target: null,
   fat_target: null,
+  fibre_target: null,
 };
 
 function check<T>(res: { data: T | null; error: { message: string } | null }): T {
@@ -14,7 +15,7 @@ function check<T>(res: { data: T | null; error: { message: string } | null }): T
   return res.data as T;
 }
 
-type FoodInput = Macros & { id?: string; name: string };
+type FoodInput = Macros & { id?: string; name: string; unit: Unit };
 type RecipeInput = { id?: string; name: string; meal_type: MealType | null; items: RecipeItem[] };
 
 /** Foods, recipes and settings. Small data, loaded once. */
@@ -97,11 +98,13 @@ export function useLibrary() {
 const pick = (e: Item): Item => ({
   name: e.name,
   grams: e.grams,
+  pieces: e.pieces,
   food_id: e.food_id,
   kcal: e.kcal,
   protein: e.protein,
   carbs: e.carbs,
   fat: e.fat,
+  fibre: e.fibre,
 });
 
 /** Entries for one day. */
@@ -154,4 +157,36 @@ export function useEntries(date: string) {
   };
 
   return { entries, loading, addEntries, updateEntry, deleteEntry, copyFrom };
+}
+
+/** Weight and waist, one row per day. Small data, loaded once. */
+export function useBody() {
+  const [rows, setRows] = useState<BodyMeasurement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from('body_measurements')
+      .select('measured_date, weight_kg, waist_cm')
+      .order('measured_date', { ascending: false })
+      .then((res) => {
+        if (res.error) console.error(res.error);
+        else setRows(res.data as BodyMeasurement[]);
+        setLoading(false);
+      });
+  }, []);
+
+  /** Save one day. Replaces that day's values. A row with both values empty is deleted. */
+  const save = async (m: BodyMeasurement) => {
+    if (m.weight_kg === null && m.waist_cm === null) {
+      check(await supabase.from('body_measurements').delete().eq('measured_date', m.measured_date));
+      setRows((rs) => rs.filter((r) => r.measured_date !== m.measured_date));
+      return;
+    }
+    const { data: u } = await supabase.auth.getUser();
+    check(await supabase.from('body_measurements').upsert({ ...m, user_id: u.user?.id }));
+    setRows((rs) => [...rs.filter((r) => r.measured_date !== m.measured_date), m].sort((a, b) => b.measured_date.localeCompare(a.measured_date)));
+  };
+
+  return { rows, loading, save };
 }

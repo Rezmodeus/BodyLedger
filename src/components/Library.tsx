@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { useLibrary } from '../db';
 import type { Food, MealType, Recipe } from '../types';
 import { MEAL_TYPES } from '../types';
-import { fmt, foodItem, num, sum } from '../util';
+import { fmt, foodItem, macroLine, num, perLabel, sum } from '../util';
 import { FoodForm } from './FoodForm';
 import { FoodPicker } from './FoodPicker';
 import { Sheet } from './Sheet';
@@ -38,7 +38,7 @@ export function Library({ lib }: { lib: Lib }) {
               <li key={f.id}>
                 <button className="list-main" onClick={() => setFood(f)}>
                   <span className="name">{f.name}</span>
-                  <span className="sub">per 100 g: {fmt(f.kcal)} kcal · P{fmt(f.protein)} C{fmt(f.carbs)} F{fmt(f.fat)}</span>
+                  <span className="sub">{perLabel(f)}: {fmt(f.kcal)} kcal · {macroLine(f)}</span>
                 </button>
               </li>
             ))}
@@ -52,13 +52,13 @@ export function Library({ lib }: { lib: Lib }) {
             {lib.recipes.map((r) => {
               const t = sum(r.items.flatMap((i) => {
                 const f = lib.foods.find((x) => x.id === i.food_id);
-                return f ? [foodItem(f, i.grams)] : [];
+                return f ? [foodItem(f, i.amount)] : [];
               }));
               return (
                 <li key={r.id}>
                   <button className="list-main" onClick={() => setRecipe(r)}>
                     <span className="name">{r.name}</span>
-                    <span className="sub">{r.items.length} items · {fmt(t.kcal)} kcal · P{fmt(t.protein)} C{fmt(t.carbs)} F{fmt(t.fat)}</span>
+                    <span className="sub">{r.items.length} items · {fmt(t.kcal)} kcal · {macroLine(t)}</span>
                   </button>
                 </li>
               );
@@ -92,30 +92,30 @@ export function Library({ lib }: { lib: Lib }) {
 
 interface Row {
   food_id: string;
-  grams: string;
+  amount: string;
 }
 
 function RecipeEditor({ lib, recipe, onClose, guard }: { lib: Lib; recipe: Recipe | 'new'; onClose: () => void; guard: Guard }) {
   const existing = recipe === 'new' ? null : recipe;
   const [name, setName] = useState(existing?.name ?? '');
   const [mt, setMt] = useState<MealType | ''>(existing?.meal_type ?? '');
-  const [rows, setRows] = useState<Row[]>(existing?.items.map((i) => ({ food_id: i.food_id, grams: String(i.grams) })) ?? []);
+  const [rows, setRows] = useState<Row[]>(existing?.items.map((i) => ({ food_id: i.food_id, amount: String(i.amount) })) ?? []);
   // row index being swapped, 'add' to append, null when closed
   const [picking, setPicking] = useState<number | 'add' | null>(null);
 
   const foodOf = (id: string) => lib.foods.find((f) => f.id === id);
   const total = sum(rows.flatMap((r) => {
     const f = foodOf(r.food_id);
-    return f ? [foodItem(f, num(r.grams))] : [];
+    return f ? [foodItem(f, num(r.amount))] : [];
   }));
 
   if (picking !== null) {
     return (
-      <Sheet title={picking === 'add' ? 'Add food' : 'Swap food (grams stay)'} onClose={() => setPicking(null)}>
+      <Sheet title={picking === 'add' ? 'Add food' : 'Swap food (amount stays)'} onClose={() => setPicking(null)}>
         <FoodPicker
           foods={lib.foods}
           onPick={(f) => {
-            setRows((rs) => (picking === 'add' ? [...rs, { food_id: f.id, grams: '100' }] : rs.map((r, i) => (i === picking ? { ...r, food_id: f.id } : r))));
+            setRows((rs) => (picking === 'add' ? [...rs, { food_id: f.id, amount: f.unit === 'piece' ? '1' : '100' }] : rs.map((r, i) => (i === picking ? { ...r, food_id: f.id } : r))));
             setPicking(null);
           }}
         />
@@ -146,18 +146,18 @@ function RecipeEditor({ lib, recipe, onClose, guard }: { lib: Lib; recipe: Recip
               <input
                 className="grams-in"
                 inputMode="decimal"
-                value={r.grams}
-                onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, grams: e.target.value } : x)))}
-                aria-label="Grams"
+                value={r.amount}
+                onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
+                aria-label="Amount"
               />
-              <span className="muted">g</span>
+              <span className="muted">{foodOf(r.food_id)?.unit === 'piece' ? 'pcs' : 'g'}</span>
               <button className="icon-btn" aria-label="Swap food" onClick={() => setPicking(i)}>⇄</button>
               <button className="icon-btn" aria-label="Remove food" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>✕</button>
             </li>
           ))}
         </ul>
         <button type="button" className="btn" onClick={() => setPicking('add')}>+ Add food</button>
-        <p className="muted">Total: {fmt(total.kcal)} kcal · P{fmt(total.protein)} C{fmt(total.carbs)} F{fmt(total.fat)}</p>
+        <p className="muted">Total: {fmt(total.kcal)} kcal · {macroLine(total)}</p>
         <div className="row">
           {existing && (
             <button
@@ -180,7 +180,7 @@ function RecipeEditor({ lib, recipe, onClose, guard }: { lib: Lib; recipe: Recip
                 id: existing?.id,
                 name: name.trim(),
                 meal_type: mt || null,
-                items: rows.map((r) => ({ food_id: r.food_id, grams: num(r.grams) })),
+                items: rows.map((r) => ({ food_id: r.food_id, amount: num(r.amount) })),
               });
               onClose();
             })}
